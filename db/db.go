@@ -39,10 +39,35 @@ func InitDB() {
 	// 這行是設定沒事的時候，最多只會有5個connection保持與DB的連線
 	DB.SetMaxIdleConns(5)
 
+	/*
+		使用 docker compose 來啟動環境時，DB 還沒來的及 ready，go web api 這邊就先 try 導致直接退出。
+		理論上 docker compose 那邊可以額外寫 script 來判斷 DB 到底好了沒，不過還沒時間研究，
+		目前暫時解決方式是，將 go web api 這邊的 compose 設定成 restart: always
+	*/
+
 	// 使用 Ping 檢查連接，目的是提早發現 DB 連線問題，不要等到有 request 進來才報錯
 	err = DB.Ping()
 	if err != nil {
 		errMsg := fmt.Sprintf("Could not connect to database (ping fail): %s", err.Error())
 		panic(errMsg)
+	}
+
+	// 如果沒建立 Table，就先直接幫它建
+	createTables()
+}
+
+func createTables() {
+
+	createUsersTable := `
+	CREATE TABLE IF NOT EXISTS users (
+        id      BIGSERIAL,
+        name    TEXT,
+        PRIMARY KEY (id)
+	)
+	`
+	_, err := DB.Exec(createUsersTable)
+	if err != nil {
+		fmt.Println(err)
+		panic("Could not create users table.")
 	}
 }
